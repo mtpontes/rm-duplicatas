@@ -1,0 +1,21 @@
+{
+  "name": "removedor-de-duplicadas",
+  "version": "1.0.0",
+  "main": "index.js",
+  "bin": "dist/index.js",
+  "scripts": {
+    "clean": "rimraf dist",
+    "start": "ts-node ./src/main/index.ts 'E:/projetos/solucoes-pessoais/image-converter/removedor-de-duplicadas/files'",
+    "build": "npm run clean && tsc && pkg . --targets node16-win-x64 --output rm-duplicatas.exe",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "rimraf": "^6.0.1",
+    "ts-node": "^10.9.2"
+  }
+}
