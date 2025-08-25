@@ -1,98 +1,89 @@
-import path from 'path'
-import fs, { Dirent } from 'node:fs'
+import { Command } from 'commander';
+import path from 'path';
+import fs, { Dirent } from 'fs';
 
-const ENCODING: BufferEncoding = 'utf8'
+const program = new Command();
+const ENCODING: BufferEncoding = 'utf8';
 const REGEX: RegExp = /^(.*) \(\d+\)\.\w+$/;
 
-
-let args: string[] = process.argv;
-const ARG: string = args[2]
-// const PATH_FILES: string = path.resolve(ARG)
-const TESTE = 'E:/projetos/solucoes-pessoais/removedor-de-duplicadas/files2'
-// const TESTE = 'E:/projetos/solucoes-pessoais/removedor-de-duplicadas/files2'
-const PATH_FILES: string = path.resolve(TESTE)
-
-function remove(path: string): void {
-  fs.rmSync(path, { force: true })
+// --- Funções utilitárias ---
+function remove(filePath: string): void {
+  fs.rmSync(filePath, { force: true });
 }
 
-function calcularTamanhoEmMegabytes(path: string): number {
-  const stat: number = fs.statSync(path).size
-  return stat / (1024 * 1024)
+function calcularTamanhoEmMegabytes(filePath: string): number {
+  const stat: number = fs.statSync(filePath).size;
+  return stat / (1024 * 1024);
 }
 
-// PADRAO
-function fluxoPadrao(): void {
-  let tamanhoTotal: number = 0
-  const filesToExclude: string[] = fs.readdirSync(PATH_FILES, { encoding: ENCODING, recursive: true })
-    .filter(file => REGEX.test(file))
-    .map(file => path.join(PATH_FILES, file))
-
-  filesToExclude.forEach(file => {
-    const size = calcularTamanhoEmMegabytes(file)
-    remove(file)
-    tamanhoTotal = tamanhoTotal + size
-  })
-
-  console.log('Arquivos excluídos: ', filesToExclude)
-  console.log(`Tamanho total: ${tamanhoTotal.toFixed(2)} MB`)
-}
-
-// RECURSIVO
 function listarArquivosRecursivamente(diretorio: string): string[] {
-  let arquivos: string[] = []
-  const itens: Dirent[] = fs.readdirSync(diretorio, { withFileTypes: true })
+  let arquivos: string[] = [];
+  const itens: Dirent[] = fs.readdirSync(diretorio, { withFileTypes: true });
 
   for (const item of itens) {
-    const caminhoCompleto = path.join(diretorio, item.name)
-
+    const caminhoCompleto = path.join(diretorio, item.name);
     if (item.isDirectory()) {
-      // Se for um diretório, chama a função recursivamente
-      arquivos = arquivos.concat(listarArquivosRecursivamente(caminhoCompleto))
+      arquivos = arquivos.concat(listarArquivosRecursivamente(caminhoCompleto));
     } else {
-      // Se for um arquivo, adiciona à lista
-      arquivos.push(caminhoCompleto)
+      arquivos.push(caminhoCompleto);
     }
   }
-  return arquivos
+  return arquivos;
 }
 
-function fluxoRecursivo(): void {
+// --- Fluxos ---
+function fluxoPadrao(targetPath: string): void {
+  let tamanhoTotal = 0;
 
-
-  const FILES: string[] = listarArquivosRecursivamente(PATH_FILES)
+  const filesToExclude: string[] = fs.readdirSync(targetPath, { encoding: ENCODING })
     .filter(file => REGEX.test(file))
-
-  let tamanhoTotal: number = 0
-  const filesToExclude: string[] = FILES.filter(file => REGEX.test(file))
-  console.log('Arquivos para excluir:', filesToExclude)
+    .map(file => path.join(targetPath, file));
 
   filesToExclude.forEach(file => {
-    // const pathFile: string = path.join(PATH_FILES, file)
-    const size = calcularTamanhoEmMegabytes(file)
-    remove(file)
+    const size = calcularTamanhoEmMegabytes(file);
+    remove(file);
+    tamanhoTotal += size;
+  });
 
-    tamanhoTotal = tamanhoTotal + size
-  })
-
-  console.log('Arquivos excluídos: ', filesToExclude.length)
-  console.log(`Tamanho total: ${tamanhoTotal.toFixed(2)} MB`)
+  console.log('Arquivos excluídos: ', filesToExclude);
+  console.log(`Tamanho total: ${tamanhoTotal.toFixed(2)} MB`);
 }
 
+function fluxoRecursivo(targetPath: string): void {
+  const FILES: string[] = listarArquivosRecursivamente(targetPath)
+    .filter(file => REGEX.test(file));
 
+  let tamanhoTotal = 0;
+  console.log('Arquivos para excluir:', FILES);
 
-function cli(): void {
-  if (ARG) {
-    switch (ARG) {
-      case '-r':
-        fluxoRecursivo()
-        break;
-      case '--help':
-        console.log('\n Execute diretamente do diretório alvo')
-        console.log(`\n Use -r para recursivo \n`)
+  FILES.forEach(file => {
+    const size = calcularTamanhoEmMegabytes(file);
+    remove(file);
+    tamanhoTotal += size;
+  });
+
+  console.log('Arquivos excluídos: ', FILES.length);
+  console.log(`Tamanho total: ${tamanhoTotal.toFixed(2)} MB`);
+}
+
+// --- CLI com Commander ---
+program
+  .name('rm-duplicatas')
+  .description('Remove arquivos duplicados no formato "nome (1).ext"')
+  .argument('[path]', 'Diretório alvo', process.cwd())
+  .option('-r, --recursive', 'Remover arquivos recursivamente em subdiretórios', false)
+  .action((targetPath: string, options: { recursive: boolean }) => {
+    const fullPath = path.resolve(targetPath);
+    if (!fs.existsSync(fullPath)) {
+      console.error(`Diretório não encontrado: ${fullPath}`);
+      process.exit(1);
     }
-    return;
-  }
-  fluxoPadrao()
-}
-cli()
+
+    if (options.recursive) {
+      fluxoRecursivo(fullPath);
+    } else {
+      fluxoPadrao(fullPath);
+    }
+  });
+
+program.parse(process.argv);
